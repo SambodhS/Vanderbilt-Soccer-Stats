@@ -25,7 +25,7 @@ def load_data():
 
 @st.cache_data
 def load_config():
-    config_path = Path.home() / "Downloads" / "Vanderbilt Soccer" / "config.yaml"
+    config_path = Path(__file__).parent / "config.yaml"
     if not config_path.exists():
         st.error(f"⚠️ config.yaml not found at {config_path}")
         return {}
