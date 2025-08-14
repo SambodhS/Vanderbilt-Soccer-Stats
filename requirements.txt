@@ -4,3 +4,4 @@ plotly
 PyYAML
 pymongo
 numpy
+pathlib
