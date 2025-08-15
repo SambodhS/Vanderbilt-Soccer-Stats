@@ -254,35 +254,74 @@ for row in positions:
             if players:
                 st.subheader("Raw stats")
 
-                # First match stats
-                stats1 = match_pos_df[match_pos_df["player_name"].isin(players)].drop(
-                    ["match", "competition", "home_team", "away_team", "year", "team"], axis=1
-                )
-                cols1 = list(stats1.columns)
-                cols1.insert(0, cols1.pop(cols1.index("player_name")))
-                stats1 = stats1[cols1]
-                stats1[cols1] = stats1[cols1].round(2)
-                stats1.insert(1, "Match", match_select)  # Add match name column
+                stats1_raw = match_pos_df[match_pos_df["player_name"].isin(players)].copy()
+                if stats1_raw.empty:
+                    st.info("No rows for selected player(s) in this match / position.")
+                else:
+                    stats1 = stats1_raw.drop(["competition", "home_team", "away_team", "year", "team"], axis=1, errors="ignore").copy()
+                    stats1 = stats1.round(2)
 
-                st.write(f"**Match 1: {match_select}**")
-                st.write(stats1)
+                    if "match" in stats1.columns:
+                        stats1.insert(1, "Match", stats1["match"])
+                        stats1 = stats1.drop(columns=["match"])
+                    else:
+                        stats1.insert(1, "Match", match_select)
 
-                # Second match stats (if compare mode)
+                    cols1 = list(stats1.columns)
+                    if "player_name" in cols1:
+                        cols1.insert(0, cols1.pop(cols1.index("player_name")))
+                        stats1 = stats1[cols1]
+
+                    pos_cfg_map = config.get("columns_config", {}).get(pos, {}).get("column_names", {})
+                    pos_cfg_cols = list(pos_cfg_map.keys())
+
+                    available_kpis = [c for c in pos_cfg_cols if c in stats1.columns]
+
+                    if available_kpis:
+                        display_cols = ["player_name", "Match"] + available_kpis
+                        display_df = stats1[display_cols].copy()
+                        rename_map = {c: pos_cfg_map[c] for c in available_kpis}
+                        display_df = display_df.rename(columns=rename_map)
+                        st.write(f"**Match 1**")
+                        st.write(display_df)
+
                 if match_pos_df2 is not None and not match_pos_df2.empty:
                     found_players = [p for p in players if p in match_pos_df2["player_name"].values]
                 else:
-                    found_players = []  # no players found if match_pos_df2 doesn't exist
+                    found_players = []
 
                 if compare:
                     if found_players:
-                        stats2 = match_pos_df2[match_pos_df2["player_name"].isin(players)].drop(["match", "competition", "home_team", "away_team", "year", "team"], axis=1)
-                        cols2 = list(stats2.columns)
-                        cols2.insert(0, cols2.pop(cols2.index("player_name")))
-                        stats2 = stats2[cols2]
-                        stats2[cols2] = stats2[cols2].round(2)
-                        stats2.insert(1, "Match", match_select_2)  # Add match name column
-                        st.write(f"**Match 2: {match_select_2}**")
-                        st.write(stats2)
+                        stats2_raw = match_pos_df2[match_pos_df2["player_name"].isin(players)].copy()
+                        if stats2_raw.empty:
+                            st.info("No rows for selected player(s) in the second match / position.")
+                        else:
+                            stats2 = stats2_raw.drop(["competition", "home_team", "away_team", "year", "team"], axis=1, errors="ignore").copy()
+                            stats2 = stats2.round(2)
+
+                            if "match" in stats2.columns:
+                                stats2.insert(1, "Match", stats2["match"])
+                                stats2 = stats2.drop(columns=["match"])
+                            else:
+                                stats2.insert(1, "Match", match_select_2)
+
+                            cols2 = list(stats2.columns)
+                            if "player_name" in cols2:
+                                cols2.insert(0, cols2.pop(cols2.index("player_name")))
+                                stats2 = stats2[cols2]
+
+                            available_kpis_2 = [c for c in pos_cfg_cols if c in stats2.columns]
+                            if available_kpis_2:
+                                display_cols2 = ["player_name", "Match"] + available_kpis_2
+                                display_df2 = stats2[display_cols2].copy()
+                                rename_map2 = {c: pos_cfg_map[c] for c in available_kpis_2}
+                                display_df2 = display_df2.rename(columns=rename_map2)
+                                st.write(f"**Match 2**")
+                                st.write(display_df2)
+                            else:
+                                st.info("No configured KPI columns for this position exist in the dataframe for Match 2 — showing full raw stats instead.")
+                                st.write(f"**Match 2**")
+                                st.write(stats2)
                     else:
                         st.info("The player did not play in the second match")
 
