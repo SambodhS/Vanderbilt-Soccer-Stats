@@ -69,26 +69,46 @@ def make_positional_subsets(df: pd.DataFrame):
 
 def plot_radar(players, position, match_df, match_df2, season_df, config, selected_metric):
     cfg = config.get("columns_config", {}).get(position, {})
-    cols = list(cfg.get("column_names", {}).keys())
-    labels = [lbl for lbl in cfg.get("column_names", {}).values() if lbl != "data"]
+    # Build cols and labels in matching order
+    col_map = cfg.get("column_names", {})  # expected: {col_name: label, ...}
+    cols = list(col_map.keys())
+    labels = [col_map[c] for c in cols]
+
+    # Pair them so we can filter together
+    col_label_pairs = [(c, l) for c, l in zip(cols, labels)]
+
+    # Only keep columns that exist in season_df (we need season as percentile baseline)
+    available_pairs = [(c, l) for c, l in col_label_pairs if c in season_df.columns]
+    if not available_pairs:
+        fig = go.Figure()
+        fig.update_layout(
+            title="No metric columns available for this position",
+            margin=dict(t=40, b=40, l=40, r=40)
+        )
+        return fig
+
+    # Unzip back
+    cols_filtered, labels_filtered = zip(*available_pairs)  # tuples
+
     fig = go.Figure()
 
     if selected_metric == "Percentile":
-        pct_season_df = calculate_percentile(season_df[cols + ["team", "player_name"]], season_df)
+        # Season percentiles (reference)
+        pct_season_df = calculate_percentile(season_df[list(cols_filtered) + ["team", "player_name"]], season_df)
 
-        sec_avg = pct_season_df[cols].mean().round(2).values
+        sec_avg = pct_season_df[list(cols_filtered)].mean().round(2).values
         fig.add_trace(go.Scatterpolar(
             r=sec_avg,
-            theta=labels,
+            theta=list(labels_filtered),
             fill="toself",
             name="SEC Avg (mean percentile)",
             opacity=0.7
         ))
 
-        baseline_50 = [50.0] * len(cols)
+        baseline_50 = [50.0] * len(cols_filtered)
         fig.add_trace(go.Scatterpolar(
             r=baseline_50,
-            theta=labels,
+            theta=list(labels_filtered),
             fill="toself",
             name="50th percentile",
             hoverinfo="none",
@@ -96,35 +116,58 @@ def plot_radar(players, position, match_df, match_df2, season_df, config, select
             showlegend=True
         ))
 
-        player_pct_df = calculate_percentile(match_df[cols + ["team", "player_name"]], season_df)
+        # Player percentiles for match 1 — use only columns available in match_df (subset of filtered if missing)
+        match1_cols = [c for c in cols_filtered if c in match_df.columns]
+        if match1_cols:
+            player_pct_df = calculate_percentile(match_df[match1_cols + ["team", "player_name"]], season_df)
+        else:
+            # create an empty frame with player_name column to avoid breaking loops below
+            player_pct_df = pd.DataFrame(columns=["player_name"] + list(cols_filtered))
 
+        # Player percentiles for match 2 (if provided)
         player_pct_df2 = None
-        if match_df2 is not None:
-            player_pct_df2 = calculate_percentile(match_df2[cols + ["team", "player_name"]], season_df)
+        if match_df2 is not None and not match_df2.empty:
+            match2_cols = [c for c in cols_filtered if c in match_df2.columns]
+            if match2_cols:
+                player_pct_df2 = calculate_percentile(match_df2[match2_cols + ["team", "player_name"]], season_df)
+            else:
+                player_pct_df2 = pd.DataFrame(columns=["player_name"] + list(cols_filtered))
 
+    # helper to truncate long legend names
+    def _truncate_label(text, max_len=25):
+        return text if len(text) <= max_len else text[: max_len - 3] + "..."
+
+    # Add traces for match 1 (use match1_cols; if a column missing it won't be plotted)
     for p in players:
-        row = player_pct_df[player_pct_df["player_name"] == p]
+        row = player_pct_df[player_pct_df["player_name"] == p] if not player_pct_df.empty else pd.DataFrame()
         if not row.empty:
+            # ensure ordering of columns matches labels used — use match1_cols and corresponding labels
+            plot_cols = [c for c in cols_filtered if c in match_df.columns]
+            plot_labels = [l for c, l in zip(cols_filtered, labels_filtered) if c in match_df.columns]
+
             fig.add_trace(go.Scatterpolar(
-                r=row[cols].values.flatten(),
-                theta=labels,
+                r=row[plot_cols].values.flatten(),
+                theta=plot_labels,
                 fill="toself",
-                name=f"{p} (Match 1)" if match_select != "All" else f"{p} (All season)",
+                name=_truncate_label(f"{p} (All)" if match_select == "All" else f"{p} (Match 1)"),
                 opacity=0.7
             ))
 
-    if match_df2 is not None:
+    # Add traces for match 2 (if available)
+    if match_df2 is not None and player_pct_df2 is not None:
         for p in players:
-            row2 = player_pct_df2[player_pct_df2["player_name"] == p]
+            row2 = player_pct_df2[player_pct_df2["player_name"] == p] if not player_pct_df2.empty else pd.DataFrame()
             if not row2.empty:
+                plot_cols2 = [c for c in cols_filtered if c in match_df2.columns]
+                plot_labels2 = [l for c, l in zip(cols_filtered, labels_filtered) if c in match_df2.columns]
+
                 fig.add_trace(go.Scatterpolar(
-                    r=row2[cols].values.flatten(),
-                    theta=labels,
+                    r=row2[plot_cols2].values.flatten(),
+                    theta=plot_labels2,
                     fill="toself",
-                    name=f"{p} (Match 2)",
+                    name=_truncate_label(f"{p} (Match 2)"),
                     opacity=0.5
                 ))
-
 
     fig.update_layout(
         polar=dict(
@@ -134,6 +177,7 @@ def plot_radar(players, position, match_df, match_df2, season_df, config, select
         margin=dict(t=80, b=80, l=80, r=80)
     )
     return fig
+
 
 
 #### MAIN CODE BELOW ####
@@ -220,19 +264,23 @@ for row in positions:
                 st.write(stats1)
 
                 # Second match stats (if compare mode)
-                if match_pos_df2 is not None:
-                    stats2 = match_pos_df2[match_pos_df2["player_name"].isin(players)].drop(
-                        ["match", "competition", "home_team", "away_team", "year", "team"], axis=1
-                    )
-                    cols2 = list(stats2.columns)
-                    cols2.insert(0, cols2.pop(cols2.index("player_name")))
-                    stats2 = stats2[cols2]
-                    stats2[cols2] = stats2[cols2].round(2)
-                    stats2.insert(1, "Match", match_select_2)  # Add match name column
-
-                    st.write(f"**Match 2: {match_select_2}**")
-                    st.write(stats2)
+                if match_pos_df2 is not None and not match_pos_df2.empty:
+                    found_players = [p for p in players if p in match_pos_df2["player_name"].values]
                 else:
-                    st.info("The player did not play in the second match")
+                    found_players = []  # no players found if match_pos_df2 doesn't exist
+
+                if compare:
+                    if found_players:
+                        stats2 = match_pos_df2[match_pos_df2["player_name"].isin(players)].drop(["match", "competition", "home_team", "away_team", "year", "team"], axis=1)
+                        cols2 = list(stats2.columns)
+                        cols2.insert(0, cols2.pop(cols2.index("player_name")))
+                        stats2 = stats2[cols2]
+                        stats2[cols2] = stats2[cols2].round(2)
+                        stats2.insert(1, "Match", match_select_2)  # Add match name column
+                        st.write(f"**Match 2: {match_select_2}**")
+                        st.write(stats2)
+                    else:
+                        st.info("The player did not play in the second match")
+
             else:
                 st.info("Select one or more players to see their raw stats here.")
