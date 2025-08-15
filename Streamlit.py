@@ -10,7 +10,7 @@ from streamlit import empty
 
 st.set_page_config(layout="wide", page_icon="vanderbilt_logo.svg", page_title="Vanderbilt Analytics")
 # st.sidebar.image("vanderbilt_logo.svg", width=75)
-MONGO_URI = "mongodb+srv://sambodhsinha:4muk8IlwVwHolzQN@vanderbilt-soccer.nv01osa.mongodb.net/?retryWrites=true&w=majority&appName=Vanderbilt-Soccer"
+MONGO_URI = st.secrets["MONGODB_URI"]
 
 @st.cache_data
 def load_data():
