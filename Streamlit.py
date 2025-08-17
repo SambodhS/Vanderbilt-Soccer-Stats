@@ -97,35 +97,80 @@ def plot_radar(players, position, match_df, match_df2, season_df, config, select
     fig = go.Figure()
 
     if selected_metric == "Percentile":
-        # Season percentiles (reference)
-        pct_season_df = calculate_percentile(season_df[list(cols_filtered) + ["team", "player_name"]], season_df)
+        # --- determine selected year and ref_df as before (your existing logic) ---
+        selected_year = None
+        if "year" in season_df.columns and not season_df["year"].dropna().empty:
+            try:
+                selected_year = int(pd.to_numeric(season_df["year"].dropna().unique()[0]))
+            except Exception:
+                selected_year = None
 
-        sec_avg = pct_season_df[list(cols_filtered)].mean().round(2).values
-        fig.add_trace(go.Scatterpolar(
-            r=sec_avg,
-            theta=list(labels_filtered),
-            fill="toself",
-            name="SEC Avg (mean percentile)",
-            opacity=0.7
-        ))
+        ref_year = 2024 if selected_year == 2025 else selected_year
 
-        baseline_50 = [50.0] * len(cols_filtered)
-        fig.add_trace(go.Scatterpolar(
-            r=baseline_50,
-            theta=list(labels_filtered),
-            fill="toself",
-            name="50th percentile",
-            hoverinfo="none",
-            opacity=0.15,
-            showlegend=True
-        ))
+        ref_df = None
+        if ref_year is not None:
+            try:
+                ref_df_candidate = data[data["year"] == ref_year].copy()
+                if not ref_df_candidate.empty:
+                    ref_df = ref_df_candidate
+            except Exception:
+                ref_df = None
 
-        # Player percentiles for match 1 — use only columns available in match_df (subset of filtered if missing)
+        if ref_df is None:
+            ref_df = season_df
+
+        # --- NEW: only use the columns that actually exist in the reference dataframe ---
+        ref_cols = [c for c in cols_filtered if c in ref_df.columns]
+
+        # If ref_cols empty and ref_df was the "prior year", try falling back to season_df columns
+        if not ref_cols and ref_df is not season_df:
+            ref_cols = [c for c in cols_filtered if c in season_df.columns]
+            if ref_cols:
+                # if we fell back to season_df, also set ref_df to season_df so percentile uses season_df
+                ref_df = season_df
+
+        # If still empty, do not attempt to compute SEC avg (avoid KeyError). Create empty pct_season_df
+        if not ref_cols:
+            pct_season_df = pd.DataFrame(columns=["player_name"] + list(cols_filtered))
+            # optionally add a light message in the figure title later (handled below)
+            sec_trace_added = False
+        else:
+            # compute percentiles using only the ref_cols that are present in ref_df
+            pct_season_df = calculate_percentile(ref_df[ref_cols + ["team", "player_name"]], ref_df)
+            sec_trace_added = True
+
+        # Add SEC Avg trace only if we computed it
+        if sec_trace_added:
+            # determine labels corresponding to ref_cols
+            labels_for_ref = [l for c, l in zip(cols_filtered, labels_filtered) if c in ref_cols]
+            sec_avg = pct_season_df[ref_cols].mean().round(2).values
+            fig.add_trace(go.Scatterpolar(
+                r=sec_avg,
+                theta=labels_for_ref,
+                fill="toself",
+                name="SEC Avg (mean percentile)" if season_select == "2025" else "2024 SEC Avg (mean percentile)",
+                opacity=0.7
+            ))
+
+            baseline_50 = [50.0] * len(ref_cols)
+            fig.add_trace(go.Scatterpolar(
+                r=baseline_50,
+                theta=labels_for_ref,
+                fill="toself",
+                name="50th percentile",
+                hoverinfo="none",
+                opacity=0.15,
+                showlegend=True
+            ))
+        else:
+            # no SEC baseline available for this season/ref - optionally annotate
+            fig.update_layout(title="SEC Avg not available for chosen season/reference (missing KPI columns)")
+
+        # --- Player percentiles for match 1 — use only columns available in match_df (subset of filtered if missing)
         match1_cols = [c for c in cols_filtered if c in match_df.columns]
         if match1_cols:
             player_pct_df = calculate_percentile(match_df[match1_cols + ["team", "player_name"]], season_df)
         else:
-            # create an empty frame with player_name column to avoid breaking loops below
             player_pct_df = pd.DataFrame(columns=["player_name"] + list(cols_filtered))
 
         # Player percentiles for match 2 (if provided)
@@ -181,6 +226,7 @@ def plot_radar(players, position, match_df, match_df2, season_df, config, select
         margin=dict(t=80, b=80, l=80, r=80)
     )
     return fig
+
 
 
 #### MAIN CODE BELOW ####
