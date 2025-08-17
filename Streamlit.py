@@ -119,6 +119,8 @@ def plot_radar(players, position, match_df, match_df2, season_df, config, select
             ref_df = season_df
 
         # --- NEW: only use the columns that actually exist in the reference dataframe ---
+        # st.write(cols_filtered)
+        # st.write(ref_df)
         ref_cols = [c for c in cols_filtered if c in ref_df.columns]
 
         # If ref_cols empty and ref_df was the "prior year", try falling back to season_df columns
@@ -128,6 +130,7 @@ def plot_radar(players, position, match_df, match_df2, season_df, config, select
                 # if we fell back to season_df, also set ref_df to season_df so percentile uses season_df
                 ref_df = season_df
 
+        # st.write(ref_cols)
         # If still empty, do not attempt to compute SEC avg (avoid KeyError). Create empty pct_season_df
         if not ref_cols:
             pct_season_df = pd.DataFrame(columns=["player_name"] + list(cols_filtered))
@@ -236,6 +239,11 @@ data.columns = data.columns.str.lower()
 data.columns = data.columns.str.replace(" ", "_")
 config = load_config()
 
+for new_col, (num, den) in config.get("metrics", {}).items():
+    if num in data.columns and den in data.columns:
+        data[new_col] = (data[num] / data[den]) * 100
+        
+
 st.sidebar.header("Filters")
 season_select = st.sidebar.selectbox("Select Season", options=sorted(data["year"].unique()))
 selected_metric = st.sidebar.selectbox("Select Metric", ["Percentile"])
@@ -254,13 +262,6 @@ if compare:
     match_df2 = season_df[season_df["match"] == match_select_2].copy()
 else:
     match_df2 = None
-
-for new_col, (num, den) in config.get("metrics", {}).items():
-    if num in season_df.columns and den in season_df.columns:
-        season_df[new_col] = (season_df[num] / season_df[den]) * 100
-        match_df[new_col]  = (match_df[num] / match_df[den]) * 100
-season_df = season_df.fillna(0)
-match_df = match_df.fillna(0)
 
 season_pos_subsets = make_positional_subsets(season_df)
 match_pos_subsets = make_positional_subsets(match_df)
