@@ -183,7 +183,6 @@ def plot_radar(players, position, match_df, match_df2, season_df, config, select
     return fig
 
 
-
 #### MAIN CODE BELOW ####
 
 data = load_data()
