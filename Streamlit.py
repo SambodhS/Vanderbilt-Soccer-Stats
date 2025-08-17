@@ -12,7 +12,6 @@ st.set_page_config(layout="wide", page_icon="vanderbilt_logo.svg", page_title="V
 # st.sidebar.image("vanderbilt_logo.svg", width=75)
 MONGO_URI = st.secrets["MONGODB_URI"]
 
-@st.cache_data(ttl=3600)
 def load_data():
     client = MongoClient(MONGO_URI)
     db = client["data"]
