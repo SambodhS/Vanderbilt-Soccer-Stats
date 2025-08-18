@@ -58,7 +58,7 @@ def calculate_percentile(match_df, season_df):
 
     return out
 
-def make_positional_subsets(df: pd.DataFrame):
+def make_positional_subsets(df):
     return {
         "Wingers": df[df["position"].str.contains("LW|RW", na=False)],
         "Forwards": df[df["position"].str.contains("CF|LWF|RWF", na=False)],
@@ -70,151 +70,74 @@ def make_positional_subsets(df: pd.DataFrame):
         "Goalkeepers": df[df["position"].str.contains("GK", na=False)],
     }
 
-def plot_radar(players, position, match_df, match_df2, season_df, config, selected_metric):
+def plot_radar(players, position, season_df, match_df, match_df2, config):
     cfg = config.get("columns_config", {}).get(position, {})
-    # Build cols and labels in matching order
-    col_map = cfg.get("column_names", {})  # expected: {col_name: label, ...}
+    col_map = cfg.get("column_names", {}) or {}
     cols = list(col_map.keys())
-    labels = [col_map[c] for c in cols]
+    labels = [col_map[c] for c in cols] # this code derives radar labels
 
-    # Pair them so we can filter together
     col_label_pairs = [(c, l) for c, l in zip(cols, labels)]
-
-    # Only keep columns that exist in season_df (we need season as percentile baseline)
     available_pairs = [(c, l) for c, l in col_label_pairs if c in season_df.columns]
-    if not available_pairs:
-        fig = go.Figure()
-        fig.update_layout(
-            title="No metric columns available for this position",
-            margin=dict(t=40, b=40, l=40, r=40)
-        )
-        return fig
+    cols_filtered, labels_filtered = zip(*available_pairs)
 
-    # Unzip back
-    cols_filtered, labels_filtered = zip(*available_pairs)  # tuples
+    common_cols = [c for c in cols_filtered if c in season_df.columns]
+    labels_for_plot = [l for c, l in zip(cols_filtered, labels_filtered) if c in common_cols]
 
     fig = go.Figure()
+    selected_year = season_select
+    ref_year = 2024 if selected_year == 2025 else selected_year
+    ref_df = data[(data["year"] == ref_year) & (data["position"] == position)] # need to do it this way because season_df would be 2025 if 2025 selected; we're basically rewriting season_df here
 
-    if selected_metric == "Percentile":
-        # --- determine selected year and ref_df as before (your existing logic) ---
-        selected_year = None
-        if "year" in season_df.columns and not season_df["year"].dropna().empty:
-            try:
-                selected_year = int(pd.to_numeric(season_df["year"].dropna().unique()[0]))
-            except Exception:
-                selected_year = None
+    for new_col, (num, den) in config.get("metrics", {}).items():
+        if new_col not in ref_df.columns and num in ref_df.columns and den in ref_df.columns:
+            num_s = pd.to_numeric(ref_df[num], errors="coerce").astype(float)
+            den_s = pd.to_numeric(ref_df[den], errors="coerce").astype(float)
+            out = np.full(len(ref_df), np.nan, dtype=float)
+            mask = (~np.isnan(den_s)) & (den_s != 0)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                out[mask] = (num_s[mask] / den_s[mask]) * 100.0
+            ref_df[new_col] = out
 
-        ref_year = 2024 if selected_year == 2025 else selected_year
+    ref_cols = [c for c in common_cols if c in ref_df.columns]
 
-        ref_df = None
-        if ref_year is not None:
-            try:
-                ref_df_candidate = data[data["year"] == ref_year].copy()
-                if not ref_df_candidate.empty:
-                    ref_df = ref_df_candidate
-            except Exception:
-                ref_df = None
+    pct_season_df = calculate_percentile(ref_df[ref_cols + ["team", "player_name"]], ref_df)
 
-        if ref_df is None:
-            ref_df = season_df
+    sec_avg = pct_season_df[common_cols].mean().round(2).values
+    fig.add_trace(go.Scatterpolar(r=sec_avg, theta=labels_for_plot, fill="toself",
+        name="2024 SEC Avg" if season_select == 2025 else f"{season_select} SEC Avg", opacity=0.7))
+    baseline_50 = [50.0] * len(common_cols)
+    fig.add_trace(go.Scatterpolar(r=baseline_50, theta=labels_for_plot, fill="toself", name="50th percentile",
+        hoverinfo="none", opacity=0.15, showlegend=True))
+    temp = match_df.reindex(columns=common_cols + ["team", "player_name"]).copy()
+    player_pct_df = calculate_percentile(temp, ref_df)
 
-        # --- NEW: only use the columns that actually exist in the reference dataframe ---
-        # st.write(cols_filtered)
-        # st.write(ref_df)
-        ref_cols = [c for c in cols_filtered if c in ref_df.columns]
+    if match_df2 is not None:
+        temp2 = match_df2.reindex(columns=common_cols + ["team", "player_name"]).copy()
+        player_pct_df2 = calculate_percentile(temp2, season_df)
 
-        # If ref_cols empty and ref_df was the "prior year", try falling back to season_df columns
-        if not ref_cols and ref_df is not season_df:
-            ref_cols = [c for c in cols_filtered if c in season_df.columns]
-            if ref_cols:
-                # if we fell back to season_df, also set ref_df to season_df so percentile uses season_df
-                ref_df = season_df
-
-        # st.write(ref_cols)
-        # If still empty, do not attempt to compute SEC avg (avoid KeyError). Create empty pct_season_df
-        if not ref_cols:
-            pct_season_df = pd.DataFrame(columns=["player_name"] + list(cols_filtered))
-            # optionally add a light message in the figure title later (handled below)
-            sec_trace_added = False
-        else:
-            # compute percentiles using only the ref_cols that are present in ref_df
-            pct_season_df = calculate_percentile(ref_df[ref_cols + ["team", "player_name"]], ref_df)
-            sec_trace_added = True
-
-        # Add SEC Avg trace only if we computed it
-        if sec_trace_added:
-            # determine labels corresponding to ref_cols
-            labels_for_ref = [l for c, l in zip(cols_filtered, labels_filtered) if c in ref_cols]
-            sec_avg = pct_season_df[ref_cols].mean().round(2).values
-            fig.add_trace(go.Scatterpolar(
-                r=sec_avg,
-                theta=labels_for_ref,
-                fill="toself",
-                name="SEC Avg (mean percentile)" if season_select == "2025" else "2024 SEC Avg (mean percentile)",
-                opacity=0.7
-            ))
-
-            baseline_50 = [50.0] * len(ref_cols)
-            fig.add_trace(go.Scatterpolar(
-                r=baseline_50,
-                theta=labels_for_ref,
-                fill="toself",
-                name="50th percentile",
-                hoverinfo="none",
-                opacity=0.15,
-                showlegend=True
-            ))
-        else:
-            # no SEC baseline available for this season/ref - optionally annotate
-            fig.update_layout(title="SEC Avg not available for chosen season/reference (missing KPI columns)")
-
-        # --- Player percentiles for match 1 — use only columns available in match_df (subset of filtered if missing)
-        match1_cols = [c for c in cols_filtered if c in match_df.columns]
-        if match1_cols:
-            player_pct_df = calculate_percentile(match_df[match1_cols + ["team", "player_name"]], season_df)
-        else:
-            player_pct_df = pd.DataFrame(columns=["player_name"] + list(cols_filtered))
-
-        # Player percentiles for match 2 (if provided)
-        player_pct_df2 = None
-        if match_df2 is not None and not match_df2.empty:
-            match2_cols = [c for c in cols_filtered if c in match_df2.columns]
-            if match2_cols:
-                player_pct_df2 = calculate_percentile(match_df2[match2_cols + ["team", "player_name"]], season_df)
-            else:
-                player_pct_df2 = pd.DataFrame(columns=["player_name"] + list(cols_filtered))
-
-    # helper to truncate long legend names
     def _truncate_label(text, max_len=25):
         return text if len(text) <= max_len else text[: max_len - 3] + "..."
 
-    # Add traces for match 1 (use match1_cols; if a column missing it won't be plotted)
     for p in players:
         row = player_pct_df[player_pct_df["player_name"] == p] if not player_pct_df.empty else pd.DataFrame()
         if not row.empty:
-            # ensure ordering of columns matches labels used — use match1_cols and corresponding labels
-            plot_cols = [c for c in cols_filtered if c in match_df.columns]
-            plot_labels = [l for c, l in zip(cols_filtered, labels_filtered) if c in match_df.columns]
-
+            r_vals = row[common_cols].values.flatten().tolist()
             fig.add_trace(go.Scatterpolar(
-                r=row[plot_cols].values.flatten(),
-                theta=plot_labels,
+                r=r_vals,
+                theta=labels_for_plot,
                 fill="toself",
-                name=_truncate_label(f"{p} (All)" if match_select == "All" else f"{p} (Match 1)"),
+                name=_truncate_label(f"{p} (All)" if ('match_select' in globals() and match_select == "All") else f"{p} (Match 1)"),
                 opacity=0.7
             ))
 
-    # Add traces for match 2 (if available)
-    if match_df2 is not None and player_pct_df2 is not None:
+    if match_df2 is not None:
         for p in players:
             row2 = player_pct_df2[player_pct_df2["player_name"] == p] if not player_pct_df2.empty else pd.DataFrame()
             if not row2.empty:
-                plot_cols2 = [c for c in cols_filtered if c in match_df2.columns]
-                plot_labels2 = [l for c, l in zip(cols_filtered, labels_filtered) if c in match_df2.columns]
-
+                r_vals2 = row2[common_cols].values.flatten().tolist()
                 fig.add_trace(go.Scatterpolar(
-                    r=row2[plot_cols2].values.flatten(),
-                    theta=plot_labels2,
+                    r=r_vals2,
+                    theta=labels_for_plot,
                     fill="toself",
                     name=_truncate_label(f"{p} (Match 2)"),
                     opacity=0.5
@@ -231,18 +154,31 @@ def plot_radar(players, position, match_df, match_df2, season_df, config, select
 
 
 
+
 #### MAIN CODE BELOW ####
+
+st.title("Vanderbilt Player Performance Charts")
+
+position_map = {
+    "LW": "Wingers", "RW": "Wingers", "LWF": "Forwards", "RWF": "Forwards", "CF": "Forwards", "AMF": "Attacking Midfielders",
+    "RAMF": "Attacking Midfielders", "LAMF": "Attacking Midfielders", "RCMF": "Central Midfielders", "LCMF": "Central Midfielders",
+    "LCMF3": "Central Midfielders", "RCMF3": "Central Midfielders", "CMF": "Central Midfielders", "DMF": "Defensive Midfielders",
+    "LDMF": "Defensive Midfielders", "RDMF": "Defensive Midfielders", "LDMF3": "Defensive Midfielders", "RDMF3": "Defensive Midfielders",
+    "LB": "Outside Backs", "RB": "Outside Backs", "LWB": "Outside Backs", "RWB": "Outside Backs", "CB": "Center Backs", "LCB": "Center Backs",
+    "LCB3": "Center Backs", "RCB": "Center Backs", "RCB3": "Center Backs", "GK": "Goalkeepers"
+}
 
 data = load_data()
 data.columns = data.columns.str.strip()
 data.columns = data.columns.str.lower()
 data.columns = data.columns.str.replace(" ", "_")
+data["position"] = data["position"].map(position_map)
+
 config = load_config()
 
 for new_col, (num, den) in config.get("metrics", {}).items():
     if num in data.columns and den in data.columns:
         data[new_col] = (data[num] / data[den]) * 100
-        
 
 st.sidebar.header("Filters")
 season_select = st.sidebar.selectbox("Select Season", options=sorted(data["year"].unique()))
@@ -263,13 +199,7 @@ if compare:
 else:
     match_df2 = None
 
-season_pos_subsets = make_positional_subsets(season_df)
-match_pos_subsets = make_positional_subsets(match_df)
-if compare:
-    match_pos_subsets2 = make_positional_subsets(match_df2)
 
-
-st.title("Vanderbilt Player Performance Charts")
 positions = [("Forwards", "Wingers"), ("Attacking Midfielders", "Central Midfielders"), ("Defensive Midfielders", "Outside Backs"),
     ("Center Backs", "Goalkeepers")]
 
@@ -278,20 +208,19 @@ for row in positions:
     for col, pos in zip(cols, row):
         with col:
             st.header(pos)
-            season_pos_df = season_pos_subsets[pos]
-            match_pos_df = match_pos_subsets[pos]
+            season_pos_df = season_df[season_df["position"] == pos]
+            match_pos_df = match_df[match_df["position"] == pos]
             if compare:
-                match_pos_df2 = match_pos_subsets2[pos]
+                match_pos_df2 = match_df2[match_df2["position"] == pos]
             else:
                 match_pos_df2 = None
-
             vandy_players = sorted(match_pos_df[match_pos_df["team"] == "Vanderbilt Commodores"]["player_name"].unique())
             opts = vandy_players
             key = f"multiselect_{pos.replace(' ', '_')}"
             sel = st.multiselect(f"Select {pos}", opts, default=None, key=key, placeholder="Choose a player")
 
             players = [p for p in sel]
-            fig = plot_radar(players, pos, match_pos_df, match_pos_df2, season_pos_df, config, selected_metric)
+            fig = plot_radar(players, pos, season_pos_df, match_pos_df, match_pos_df2, config) # everything important happens here
 
             chart_key = f"radar_{season_select}_{match_select}_{selected_metric}_{pos.replace(' ','_')}"
             st.plotly_chart(fig, use_container_width=True, key=chart_key)
