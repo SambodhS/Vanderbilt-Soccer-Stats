@@ -152,9 +152,6 @@ def plot_radar(players, position, season_df, match_df, match_df2, config):
     )
     return fig
 
-
-
-
 #### MAIN CODE BELOW ####
 
 st.title("Vanderbilt Player Performance Charts")
@@ -184,10 +181,10 @@ season_select = st.sidebar.selectbox("Select Season", options=sorted(data["year"
 selected_metric = st.sidebar.selectbox("Select Metric", ["Percentile"])
 match_select = st.sidebar.selectbox("Select Match", options=["All"] + sorted(data[(data["year"] == season_select) & data["match"].str.contains("Vanderbilt Commodores", na=False)]["match"].unique()))
 compare = st.sidebar.checkbox("Compare two matches?")
-minutes_filter = st.sidebar.checkbox("Filter by players who played more than 20 minutes?")
+minutes_filter = st.sidebar.checkbox("Players w/ ≥ 20 minutes?")
 
 if minutes_filter:
-    data = data[data["minutes_played"] > 20]
+    data = data[data["minutes_played"] >= 20]
 
 season_df = data[data["year"] == season_select].copy()
 if match_select != "All":
