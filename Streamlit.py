@@ -173,8 +173,6 @@ data.columns = data.columns.str.strip()
 data.columns = data.columns.str.lower()
 data.columns = data.columns.str.replace(" ", "_")
 data["position"] = data["position"].map(position_map)
-data = data[data["minutes_played"] > 20]
-
 config = load_config()
 
 for new_col, (num, den) in config.get("metrics", {}).items():
@@ -186,6 +184,10 @@ season_select = st.sidebar.selectbox("Select Season", options=sorted(data["year"
 selected_metric = st.sidebar.selectbox("Select Metric", ["Percentile"])
 match_select = st.sidebar.selectbox("Select Match", options=["All"] + sorted(data[(data["year"] == season_select) & data["match"].str.contains("Vanderbilt Commodores", na=False)]["match"].unique()))
 compare = st.sidebar.checkbox("Compare two matches?")
+minutes_filter = st.sidebar.checkbox("Filter by players who played more than 20 minutes?")
+
+if minutes_filter:
+    data = data[data["minutes_played"] > 20]
 
 season_df = data[data["year"] == season_select].copy()
 if match_select != "All":
