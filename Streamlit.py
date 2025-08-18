@@ -173,6 +173,7 @@ data.columns = data.columns.str.strip()
 data.columns = data.columns.str.lower()
 data.columns = data.columns.str.replace(" ", "_")
 data["position"] = data["position"].map(position_map)
+data = data[data["minutes_played"] > 20]
 
 config = load_config()
 
