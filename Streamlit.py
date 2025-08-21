@@ -59,18 +59,6 @@ def calculate_percentile(match_df, season_df):
 
     return out
 
-def make_positional_subsets(df):
-    return {
-        "Wingers": df[df["position"].str.contains("LW|RW", na=False)],
-        "Forwards": df[df["position"].str.contains("CF|LWF|RWF", na=False)],
-        "Attacking Midfielders": df[df["position"].str.contains("AMF", na=False)],
-        "Central Midfielders": df[df["position"].str.contains("CMF", na=False)],
-        "Defensive Midfielders": df[df["position"].str.contains("DMF", na=False)],
-        "Outside Backs": df[df["position"].str.contains("LB|RB|LWB|RWB", na=False)],
-        "Center Backs": df[df["position"].str.contains("CB|LCB|LCB3|RCB|RCB3", na=False)],
-        "Goalkeepers": df[df["position"].str.contains("GK", na=False)],
-    }
-
 def plot_radar(players, position, season_df, match_df, match_df2, config):
     cfg = config.get("columns_config", {}).get(position, {})
     col_map = cfg.get("column_names", {}) or {}
@@ -87,7 +75,7 @@ def plot_radar(players, position, season_df, match_df, match_df2, config):
     fig = go.Figure()
     selected_year = season_select
     ref_year = 2024 if selected_year == 2025 else selected_year
-    ref_df = data[(data["year"] == ref_year) & (data["position"] == position)] # need to do it this way because season_df would be 2025 if 2025 selected; we're basically rewriting season_df here
+    ref_df = data[(data["year"] == ref_year) & (data["position"] == position)]
 
     for new_col, (num, den) in config.get("metrics", {}).items():
         if new_col not in ref_df.columns and num in ref_df.columns and den in ref_df.columns:
@@ -170,7 +158,19 @@ data = load_data()
 data.columns = data.columns.str.strip()
 data.columns = data.columns.str.lower()
 data.columns = data.columns.str.replace(" ", "_")
-data["position"] = data["position"].map(position_map)
+
+data = data[data["position"] != "0"]
+data["position"] = data["position"].astype(str).str.strip().str.split(r"\s*,\s*").apply(lambda lst: [position_map.get(code, code) for code in lst])
+data["needs_explode"] = data["position"].apply(lambda x: len(set(x)) > 1)
+
+exploded = data[data["needs_explode"]].explode("position")
+not_exploded = data[~data["needs_explode"]]
+
+not_exploded["position"] = not_exploded["position"].apply(lambda x: x[0] if len(set(x)) == 1 else x)
+exploded["position"] = exploded["position"].apply(lambda x: ','.join(x) if isinstance(x, list) else x)
+
+data = pd.concat([not_exploded, exploded], ignore_index=True)
+
 config = load_config()
 
 for new_col, (num, den) in config.get("metrics", {}).items():
@@ -215,13 +215,13 @@ for row in positions:
                 match_pos_df2 = match_df2[match_df2["position"] == pos]
             else:
                 match_pos_df2 = None
-            vandy_players = sorted(match_pos_df[match_pos_df["team"] == "Vanderbilt Commodores"]["player_name"].unique())
-            opts = vandy_players
+
+            opts = data[(data["year"] == season_select) & (data["team"] == "Vanderbilt Commodores")]["player_name"].unique()
             key = f"multiselect_{pos.replace(' ', '_')}"
             sel = st.multiselect(f"Select {pos}", opts, default=None, key=key, placeholder="Choose a player")
 
             players = [p for p in sel]
-            fig = plot_radar(players, pos, season_pos_df, match_pos_df, match_pos_df2, config) # everything important happens here
+            fig = plot_radar(players, pos, season_pos_df, match_pos_df, match_pos_df2, config)
 
             chart_key = f"radar_{season_select}_{match_select}_{selected_metric}_{pos.replace(' ','_')}"
             st.plotly_chart(fig, use_container_width=True, key=chart_key)
