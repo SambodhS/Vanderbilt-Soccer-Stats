@@ -12,7 +12,7 @@ st.set_page_config(layout="wide", page_icon="vanderbilt_logo.svg", page_title="V
 # st.sidebar.image("vanderbilt_logo.svg", width=75)
 MONGO_URI = st.secrets["MONGODB_URI"]
 
-#@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600)
 def load_data():
     client = MongoClient(MONGO_URI)
     db = client["data"]
@@ -24,8 +24,8 @@ def load_data():
     df['player_name'] = df['player_name'].str.replace('Player stats ', '', regex=False).str.strip()
     return df
 
+@st.cache_data
 def load_config():
-    # Path to config.yaml in the same folder as the app
     config_path = Path(__file__).parent / "config.yaml"
 
     if not config_path.exists():
