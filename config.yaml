@@ -75,6 +75,7 @@ column_names:
   - team
   - player_name
 
+
 metrics:
   total_passing_accuracy: ["accurate_passes", "passes"]
   forward_passing_accuracy: ["forward_passes_accurate", "forward_passes"]
@@ -85,76 +86,61 @@ metrics:
   shot_on_target_rate: ["shots_on_target", "shots"]
   xg_per_shot: ["xg", "shots"]
   gk_stat_save_pct: ["saves", "shots_against"]
+  crossing_accuracy: ["crosses", "accurate_crosses"]
+  dribbles_accuracy: ["dribbles", "successful_dribbles"]
+
 
 columns_config:
-  Wingers:
-    column_names:
-      touches_in_penalty_area: Touches Inside the Box 
-      accurate_crosses: Accurate Crosses 
-      shots_on_target: Shots on Target
-      shots: Shots
-      shot_assists: Shot Assists
-      passes_to_final_third_accurate: Final Third Passes Completed
-      recoveries_opp_half: Recoveries in Opponent's Half
-      losses: Losses
-
-  Goalkeepers:
-    column_names:
-      shots_against: Shots Faced
-      saves: Saves Made
-      gk_stat_save_pct: Save Percentage
-      conceded_goals: Goals Conceded
-      xcg: xG Conceded 
-      total_passing_accuracy: Total Passing Accuracy
-      aerial_duels_won: Aerial Duels Won 
-
   Forwards:
     column_names:
-      touches_in_penalty_area: Touches Inside the Box 
-      shots_on_target: Shots on Target
+      aerial_duels_won: Aerial Duels Won
+      aerial_duels: Aerial Duels
+      xg: Expected Goals (xG)
+      progressive_runs: Progressive Runs Attempted
       shots: Shots
-      goals: Goals
+      shots_on_target: Shots on Target
       shot_assists: Shot Assists
+      touches_in_penalty_area: Touches Inside the Box
+      recoveries: Recoveries
       recoveries_opp_half: Recoveries in Opponent's Half
 
-  Central Midfielders:
+  Wingers:
     column_names:
-      shots_on_target: Shots on Target
-      shots: Shots
-      goals: Goals
-      shot_assists: Shot Assists
+      dribbles: Dribbles Attempted
+      successful_dribbles: Successful Dribbles
+      crosses: Crosses Attempted
+      accurate_crosses: Accurate Crosses
+      recoveries: Recoveries
       recoveries_opp_half: Recoveries in Opponent's Half
-      touches_in_penalty_area: Touches Inside the Box
+      defensive_duels: Defensive Duels Attempted
+      defensive_duels_won: Defensive Duels Won
+      duels: Duels Attempted
+      duels_won: Duels Won
 
   Attacking Midfielders:
     column_names:
-      shots_on_target: Shots on Target
-      shots: Shots
-      goals: Goals
-      shot_assists: Shot Assists
+      through_passes: Through Passes Attempted
+      through_passes_accurate: Through Passes Completed
+      passes_to_penalty_area: Passes Into Box Attempted
+      passes_to_penalty_area_accurate: Passes Into Box Completed
+      recoveries: Recoveries
       recoveries_opp_half: Recoveries in Opponent's Half
+      loose_ball_duels: Loose Ball Duels Attempted
+      loose_ball_duels_won: Loose Ball Duels Won
       touches_in_penalty_area: Touches Inside the Box
 
-  Outside Backs:
+  Central Midfielders:
     column_names:
-      touches_in_penalty_area: Touches Inside the Box 
-      accurate_crosses: Accurate Crosses 
-      shots_on_target: Shots on Target
+      aerial_duels: Aerial Duels Attempted
+      aerial_duels_won: Aerial Duels Won
+      xg: Expected Goals (xG)
+      progressive_runs: Progressive Runs Attempted
+      touches_in_penalty_area: Touches Inside the Box
       shots: Shots
-      shot_assists: Shot Assists
-      passes_to_final_third_accurate: Final Third Passes Completed
-      recoveries_opp_half: Recoveries in Opponent's Half
-      losses: Losses
-
-  Center Backs:
-    column_names:
-      accurate_passes: Total Passes Completed
-      forward_passes_accurate: Forward Passes Completed
+      shots_on_target: Shots on Target
       recoveries: Recoveries
-      clearances: Clearances
-      aerial_duels_won: Aerial Duels Won 
-      defensive_duels_won: Defensive Duels Won
-  
+      recoveries_opp_half: Recoveries in Opponent's Half
+
   Defensive Midfielders:
     column_names:
       accurate_passes: Total Passes Completed
@@ -164,3 +150,36 @@ columns_config:
       shots_on_target: Shots on Target
       shots: Shots
       shot_assists: Shot Assists
+
+  Center Backs:
+    column_names:
+      aerial_duels: Aerial Duels Attempted
+      aerial_duels_won: Aerial Duels Won
+      defensive_duels: Defensive Duels Attempted
+      defensive_duels_won: Defensive Duels Won
+      long_passes: Long Passes Attempted
+      accurate_long_passes: Long Passes Completed
+      passes: Total Passes Attempted
+      accurate_passes: Total Passes Completed
+      forward_passes: Total Forward Passes Attempted
+      forward_passes: Total Forward Passes Completed
+
+  Outside Backs:
+    column_names:
+      shots: Shots
+      shots_on_target: Shots on Target
+      crosses: Attempted Crosses
+      accurate_crosses: Total Crosses Completed
+      losses: Losses
+      recoveries: Recoveries
+      recoveries_opp_half: Recoveries in Opponent's Half
+      passes_to_final_third: Passes to Final Third Attempted
+      passes_to_final_third_accurate: Passes to Final Third Completed
+        
+  Goalkeepers:
+    column_names:
+      xcg: xG Conceded
+      conceded_goals: Goals Conceded
+      saves: Saves Made
+      gk_stat_save_pct: Save Percentage
+      shots_against: Shots Faced
