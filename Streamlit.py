@@ -24,7 +24,6 @@ def load_data():
     df['player_name'] = df['player_name'].str.replace('Player stats ', '', regex=False).str.strip()
     return df
 
-@st.cache_data
 def load_config():
     # Path to config.yaml in the same folder as the app
     config_path = Path(__file__).parent / "config.yaml"
