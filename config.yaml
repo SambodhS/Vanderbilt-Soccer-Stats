@@ -143,13 +143,15 @@ columns_config:
 
   Defensive Midfielders:
     column_names:
-      accurate_passes: Total Passes Completed
-      forward_passes_accurate: Forward Passes Completed
+      aerial_duels: Aerial Duels Attempted
       aerial_duels_won: Aerial Duels Won
-      recoveries: Recoveries
-      shots_on_target: Shots on Target
+      xg: Expected Goals (xG)
+      progressive_runs: Progressive Runs Attempted
+      touches_in_penalty_area: Touches Inside the Box
       shots: Shots
-      shot_assists: Shot Assists
+      shots_on_target: Shots on Target
+      recoveries: Recoveries
+      recoveries_opp_half: Recoveries in Opponent's Half
 
   Center Backs:
     column_names:
