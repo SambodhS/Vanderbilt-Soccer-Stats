@@ -186,3 +186,6 @@ columns_config:
       saves: Saves Made
       gk_stat_save_pct: Save Percentage
       shots_against: Shots Faced
+      passes: Attempted Passes
+      accurate_passes: Passes Completed
+      forward_passes_accurate: Forward Passes Completed
