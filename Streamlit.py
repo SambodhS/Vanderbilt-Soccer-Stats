@@ -71,6 +71,7 @@ def plot_radar(players, position, season_df, match_df, match_df2, config):
     common_cols = [c for c in cols_filtered if c in season_df.columns]
     labels_for_plot = [l for c, l in zip(cols_filtered, labels_filtered) if c in common_cols]
 
+
     fig = go.Figure()
     selected_year = season_select
     ref_year = 2024 if selected_year == 2025 else selected_year
@@ -88,56 +89,68 @@ def plot_radar(players, position, season_df, match_df, match_df2, config):
 
     ref_cols = [c for c in common_cols if c in ref_df.columns]
 
-    pct_season_df = calculate_percentile(ref_df[ref_cols + ["team", "player_name"]], ref_df)
-
-    sec_avg = pct_season_df[common_cols].mean().round(2).values
-    fig.add_trace(go.Scatterpolar(r=sec_avg, theta=labels_for_plot, fill="toself",
-        name="2024 SEC Avg" if season_select == 2025 else f"{season_select} SEC Avg", opacity=0.7))
-    baseline_50 = [50.0] * len(common_cols)
-    fig.add_trace(go.Scatterpolar(r=baseline_50, theta=labels_for_plot, fill="toself", name="50th percentile",
-        hoverinfo="none", opacity=0.15, showlegend=True))
-    temp = match_df.reindex(columns=common_cols + ["team", "player_name"]).copy()
-    player_pct_df = calculate_percentile(temp, ref_df)
-
-    if match_df2 is not None:
-        temp2 = match_df2.reindex(columns=common_cols + ["team", "player_name"]).copy()
-        player_pct_df2 = calculate_percentile(temp2, season_df)
-
     def _truncate_label(text, max_len=25):
         return text if len(text) <= max_len else text[: max_len - 3] + "..."
 
-    for p in players:
-        row = player_pct_df[player_pct_df["player_name"] == p] if not player_pct_df.empty else pd.DataFrame()
-        if not row.empty:
-            r_vals = row[common_cols].values.flatten().tolist()
-            fig.add_trace(go.Scatterpolar(
-                r=r_vals,
-                theta=labels_for_plot,
-                fill="toself",
-                name=_truncate_label(f"{p} (All)" if ('match_select' in globals() and match_select == "All") else f"{p} (Match 1)"),
-                opacity=0.7
-            ))
+    if selected_metric == "Percentile":
+        pct_season_df = calculate_percentile(ref_df[ref_cols + ["team", "player_name"]], ref_df)
+        sec_avg = pct_season_df[common_cols].mean().round(2).values
 
-    if match_df2 is not None:
+        fig.add_trace(go.Scatterpolar(r=sec_avg, theta=labels_for_plot, fill="toself",
+            name="2024 SEC Avg" if season_select == 2025 else f"{season_select} SEC Avg", opacity=0.7))
+        baseline_50 = [50.0] * len(common_cols)
+        fig.add_trace(go.Scatterpolar(r=baseline_50, theta=labels_for_plot, fill="toself", name="50th percentile",
+            hoverinfo="none", opacity=0.15, showlegend=True))
+        temp = match_df.reindex(columns=common_cols + ["team", "player_name"]).copy()
+        player_pct_df = calculate_percentile(temp, ref_df)
+
+        if match_df2 is not None:
+            temp2 = match_df2.reindex(columns=common_cols + ["team", "player_name"]).copy()
+            player_pct_df2 = calculate_percentile(temp2, season_df)
+
         for p in players:
-            row2 = player_pct_df2[player_pct_df2["player_name"] == p] if not player_pct_df2.empty else pd.DataFrame()
-            if not row2.empty:
-                r_vals2 = row2[common_cols].values.flatten().tolist()
+            row = player_pct_df[player_pct_df["player_name"] == p] if not player_pct_df.empty else pd.DataFrame()
+            if not row.empty:
+                r_vals = row[common_cols].values.flatten().tolist()
                 fig.add_trace(go.Scatterpolar(
-                    r=r_vals2,
+                    r=r_vals,
                     theta=labels_for_plot,
                     fill="toself",
-                    name=_truncate_label(f"{p} (Match 2)"),
-                    opacity=0.5
+                    name=_truncate_label(f"{p} (All)" if match_select == "All" else f"{p} (Match 1)"),
+                    opacity=0.7
                 ))
 
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(range=[0, 100], showticklabels=False),
-            angularaxis=dict(showticklabels=True)
-        ),
-        margin=dict(t=80, b=80, l=80, r=80)
-    )
+        if match_df2 is not None:
+            for p in players:
+                row2 = player_pct_df2[player_pct_df2["player_name"] == p] if not player_pct_df2.empty else pd.DataFrame()
+                if not row2.empty:
+                    r_vals2 = row2[common_cols].values.flatten().tolist()
+                    fig.add_trace(go.Scatterpolar(r=r_vals2, theta=labels_for_plot, fill="toself", name=_truncate_label(f"{p} (Match 2)"),
+                        opacity=0.5))
+
+        fig.update_layout(
+            polar=dict(radialaxis=dict(range=[0, 100], showticklabels=False), angularaxis=dict(showticklabels=True)),
+            margin=dict(t=80, b=80, l=80, r=80))
+    else:
+        sec_avg = ref_df[common_cols].mean().round(2).values
+        fig.add_trace(go.Scatterpolar(r=sec_avg, theta=labels_for_plot, fill="toself",
+                                      name="2024 SEC Avg" if season_select == 2025 else f"{season_select} SEC Avg", opacity=0.7))
+
+        for p in players:
+            row = match_df[match_df["player_name"] == p] if not match_df.empty else pd.DataFrame()
+            player_avg = row[common_cols].mean().round(2).values
+            if not row.empty:
+                fig.add_trace(go.Scatterpolar(r=player_avg, theta=labels_for_plot, fill="toself",
+                    name=_truncate_label(f"{p} (All)" if match_select == "All" else f"{p} (Match 1)"), opacity=0.7))
+
+        if match_df2 is not None:
+            for p in players:
+                row2 = match_df2[match_df2["player_name"] == p]
+                player_avg2 = row2[common_cols].mean().round(2).values
+                if not row2.empty:
+                    fig.add_trace(go.Scatterpolar(r=player_avg2, theta=labels_for_plot, fill="toself", name=_truncate_label(f"{p} (Match 2)"),
+                        opacity=0.5))
+
     return fig
 
 #### MAIN CODE BELOW ####
@@ -174,11 +187,11 @@ config = load_config()
 
 for new_col, (num, den) in config.get("metrics", {}).items():
     if num in data.columns and den in data.columns:
-        data[new_col] = (data[num] / data[den]) * 100
+        data[new_col] = (data[num] / data[den])
 
 st.sidebar.header("Filters")
 season_select = st.sidebar.selectbox("Select Season", options=sorted(data["year"].unique()))
-selected_metric = st.sidebar.selectbox("Select Metric", ["Percentile"])
+selected_metric = st.sidebar.selectbox("Select Metric", ["Average", "Percentile"])
 match_select = st.sidebar.selectbox("Select Match", options=["All"] + sorted(data[(data["year"] == season_select) & data["match"].str.contains("Vanderbilt Commodores", na=False)]["match"].unique()))
 compare = st.sidebar.checkbox("Compare two matches?")
 minutes_filter = st.sidebar.checkbox("Players w/ ≥ 20 minutes?")
@@ -215,7 +228,7 @@ for row in positions:
             else:
                 match_pos_df2 = None
 
-            opts = data[(data["year"] == season_select) & (data["team"] == "Vanderbilt Commodores")]["player_name"].unique()
+            opts = data[(data["year"] == season_select) & (data["team"] == "Vanderbilt Commodores") & (data["position"] == pos)]["player_name"].unique()
             key = f"multiselect_{pos.replace(' ', '_')}"
             sel = st.multiselect(f"Select {pos}", opts, default=None, key=key, placeholder="Choose a player")
 
@@ -230,7 +243,7 @@ for row in positions:
 
                 stats1_raw = match_pos_df[match_pos_df["player_name"].isin(players)].copy()
                 if stats1_raw.empty:
-                    st.info("No rows for selected player(s) in this match / position.")
+                    st.info("No rows for selected player(s) in this match / position. Try viewing a different position's dashboard if this player played in the match.")
                 else:
                     stats1 = stats1_raw.drop(["competition", "home_team", "away_team", "year", "team"], axis=1, errors="ignore").copy()
                     stats1 = stats1.round(2)
