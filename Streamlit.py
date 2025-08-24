@@ -130,7 +130,7 @@ def plot_radar(players, position, season_df, match_df, match_df2, config):
 
         fig.update_layout(
             polar=dict(radialaxis=dict(range=[0, 100], showticklabels=False), angularaxis=dict(showticklabels=True)),
-            margin=dict(t=80, b=80, l=80, r=80))
+            margin=dict(t=80, b=80, l=80, r=80), template="plotly_white")
     else:
         sec_avg = ref_df[common_cols].mean().round(2).values
         fig.add_trace(go.Scatterpolar(r=sec_avg, theta=labels_for_plot, fill="toself",
