@@ -12,7 +12,7 @@ st.set_page_config(layout="wide", page_icon="vanderbilt_logo.svg", page_title="V
 # st.sidebar.image("vanderbilt_logo.svg", width=75)
 MONGO_URI = st.secrets["MONGODB_URI"]
 
-@st.cache_data
+
 def load_data():
     client = MongoClient(MONGO_URI)
     db = client["data"]
@@ -71,7 +71,6 @@ def plot_radar(players, position, season_df, match_df, match_df2, config):
     common_cols = [c for c in cols_filtered if c in season_df.columns]
     labels_for_plot = [l for c, l in zip(cols_filtered, labels_filtered) if c in common_cols]
 
-
     fig = go.Figure()
     selected_year = season_select
     ref_year = 2024 if selected_year == 2025 else selected_year
@@ -97,10 +96,11 @@ def plot_radar(players, position, season_df, match_df, match_df2, config):
         sec_avg = pct_season_df[common_cols].mean().round(2).values
 
         fig.add_trace(go.Scatterpolar(r=sec_avg, theta=labels_for_plot, fill="toself",
-            name="2024 SEC Avg" if season_select == 2025 else f"{season_select} SEC Avg", opacity=0.7))
-        baseline_50 = [50.0] * len(common_cols)
-        fig.add_trace(go.Scatterpolar(r=baseline_50, theta=labels_for_plot, fill="toself", name="50th percentile",
-            hoverinfo="none", opacity=0.15, showlegend=True))
+            name="2024 SEC Avg" if season_select == 2025 else f"{season_select} SEC Avg",
+                                      line=dict(color="rgba(128,128,128,0.8)", width=2),  # medium grey outline
+                                      fillcolor="rgba(128,128,128,0.2)"
+                                      ))
+
         temp = match_df.reindex(columns=common_cols + ["team", "player_name"]).copy()
         player_pct_df = calculate_percentile(temp, ref_df)
 
@@ -134,7 +134,9 @@ def plot_radar(players, position, season_df, match_df, match_df2, config):
     else:
         sec_avg = ref_df[common_cols].mean().round(2).values
         fig.add_trace(go.Scatterpolar(r=sec_avg, theta=labels_for_plot, fill="toself",
-                                      name="2024 SEC Avg" if season_select == 2025 else f"{season_select} SEC Avg", opacity=0.7))
+                                      name="2024 SEC Avg" if season_select == 2025 else f"{season_select} SEC Avg", opacity=0.7,
+                                      line=dict(color="rgba(128,128,128,0.8)", width=2),  # medium grey outline
+                                      fillcolor="rgba(128,128,128,0.2)"))
 
         for p in players:
             row = match_df[match_df["player_name"] == p] if not match_df.empty else pd.DataFrame()
@@ -150,6 +152,8 @@ def plot_radar(players, position, season_df, match_df, match_df2, config):
                 if not row2.empty:
                     fig.add_trace(go.Scatterpolar(r=player_avg2, theta=labels_for_plot, fill="toself", name=_truncate_label(f"{p} (Match 2)"),
                         opacity=0.5))
+
+        fig.update_layout(template="plotly_white", polar=dict(radialaxis=dict(showticklabels=False)))
 
     return fig
 
