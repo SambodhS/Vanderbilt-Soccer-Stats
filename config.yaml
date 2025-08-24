@@ -153,6 +153,7 @@ columns_config:
       recoveries: Recoveries
       recoveries_opp_half: Recoveries in Opponent's Half
 
+
   Center Backs:
     column_names:
       aerial_duels: Aerial Duels Attempted
