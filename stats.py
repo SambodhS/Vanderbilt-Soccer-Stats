@@ -9,10 +9,8 @@ import numpy as np
 from streamlit import empty
 
 st.set_page_config(layout="wide", page_icon="vanderbilt_logo.svg", page_title="Vanderbilt Analytics")
-st.write("checkpoint: after set_page_config")
 # st.sidebar.image("vanderbilt_logo.svg", width=75)
 MONGO_URI = st.secrets["MONGODB_URI"]
-st.write("checkpoint: after reading secrets") 
 
 import streamlit as st
 from pymongo import MongoClient
@@ -179,7 +177,6 @@ position_map = {
 }
 
 data = load_data()
-st.write("checkpoint: before importing or calling load_data()")
 data.columns = data.columns.str.strip()
 data.columns = data.columns.str.lower()
 data.columns = data.columns.str.replace(" ", "_")
