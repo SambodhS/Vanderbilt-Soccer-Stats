@@ -20,7 +20,7 @@ import pandas as pd
 import numpy as np
 import traceback
 
-@st.cache_data
+# @st.cache_data
 def load_data():
     client = MongoClient(MONGO_URI)
     db = client["data"]
