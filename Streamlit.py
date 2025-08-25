@@ -12,6 +12,13 @@ st.set_page_config(layout="wide", page_icon="vanderbilt_logo.svg", page_title="V
 # st.sidebar.image("vanderbilt_logo.svg", width=75)
 MONGO_URI = st.secrets["MONGODB_URI"]
 
+import streamlit as st
+from pymongo import MongoClient
+import pandas as pd
+import numpy as np
+import traceback
+
+# DEBUG helper: use this instead of your current load_data() while debugging
 def debug_safe_load_data(mongo_uri, db_name="data", coll_name="SEC",
                          server_timeout_ms=5000, sample_only=False, sample_limit=100):
     st.write("### Debugging data load")
@@ -27,6 +34,68 @@ def debug_safe_load_data(mongo_uri, db_name="data", coll_name="SEC",
         st.error("Mongo ping failed — check MONGO_URI, network, and auth.")
         st.text(traceback.format_exc())
         raise
+
+    db = client[db_name]
+    coll = db[coll_name]
+
+    # quick counts and sample info
+    try:
+        total_docs = coll.count_documents({})
+        st.write(f"Total documents in collection: {total_docs}")
+    except Exception as e:
+        st.write("Could not count documents:", e)
+
+    # fetch either a small sample or full set depending on sample_only
+    try:
+        if sample_only:
+            docs = list(coll.find().limit(sample_limit))
+            st.write(f"Fetched sample of {len(docs)} docs (limit={sample_limit})")
+        else:
+            # consider projection if your collection is large or has heavy fields
+            docs = list(coll.find())
+            st.write(f"Fetched {len(docs)} docs (full)")
+    except Exception:
+        st.error("Fetching documents failed.")
+        st.text(traceback.format_exc())
+        raise
+
+    # inspect keys & types in first few documents
+    for i, d in enumerate(docs[:5]):
+        st.write(f"Doc {i} keys: {list(d.keys())}")
+        st.write({k: type(v).__name__ for k, v in d.items()})
+
+    # defensive sanitize & convert to dataframe
+    for d in docs:
+        d.pop("_id", None)
+
+    # Normalize problematic nested fields to strings so pandas won't choke
+    def normalize_doc(d):
+        for k, v in list(d.items()):
+            if isinstance(v, (list, dict)):
+                d[k] = str(v)   # or use json.dumps(v) for more structure
+            elif v is None:
+                d[k] = np.nan
+            # handle Decimal128, Binary, Object types if necessary (stringify)
+        return d
+
+    docs = [normalize_doc(d) for d in docs]
+    df = pd.DataFrame(docs)
+
+    # ensure columns exist before calling .str
+    if "player_name" not in df.columns:
+        st.warning("player_name column missing — creating empty strings to avoid .str errors.")
+        df["player_name"] = ""
+
+    # ensure it's string-like before .str ops
+    df["player_name"] = df["player_name"].astype(str).str.replace("Player stats ", "", regex=False).str.strip()
+
+    # extra check for position field: if it's a list/str/single value, coerce to str
+    if "position" in df.columns:
+        df["position"] = df["position"].fillna("").astype(str)
+
+    st.write("Dataframe shape:", df.shape)
+    return df
+
 
 @st.cache_data
 def load_config():
