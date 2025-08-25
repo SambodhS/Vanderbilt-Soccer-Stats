@@ -96,6 +96,8 @@ def debug_safe_load_data(mongo_uri, db_name="data", coll_name="SEC",
     st.write("Dataframe shape:", df.shape)
     return df
 
+data = debug_safe_load_data(MONGO_URI, sample_only=True)
+
 
 @st.cache_data
 def load_config():
