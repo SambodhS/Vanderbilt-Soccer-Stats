@@ -12,17 +12,21 @@ st.set_page_config(layout="wide", page_icon="vanderbilt_logo.svg", page_title="V
 # st.sidebar.image("vanderbilt_logo.svg", width=75)
 MONGO_URI = st.secrets["MONGODB_URI"]
 
-@st.cache_data
-def load_data():
-    client = MongoClient(MONGO_URI)
-    db = client["data"]
-    coll = db["SEC"]
-    data = list(coll.find())
-    for d in data:
-        d.pop("_id", None)
-    df = pd.DataFrame(data)
-    df['player_name'] = df['player_name'].str.replace('Player stats ', '', regex=False).str.strip()
-    return df
+def debug_safe_load_data(mongo_uri, db_name="data", coll_name="SEC",
+                         server_timeout_ms=5000, sample_only=False, sample_limit=100):
+    st.write("### Debugging data load")
+    try:
+        client = MongoClient(mongo_uri,
+                             serverSelectionTimeoutMS=server_timeout_ms,
+                             connectTimeoutMS=server_timeout_ms,
+                             socketTimeoutMS=server_timeout_ms)
+        # fast fail if cannot reach the server
+        client.admin.command("ping")
+        st.write("Mongo ping: OK")
+    except Exception:
+        st.error("Mongo ping failed — check MONGO_URI, network, and auth.")
+        st.text(traceback.format_exc())
+        raise
 
 @st.cache_data
 def load_config():
