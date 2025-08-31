@@ -18,7 +18,7 @@ import pandas as pd
 import numpy as np
 import traceback
 
-@st.cache_data
+# @st.cache_data
 def load_data():
     client = MongoClient(MONGO_URI)
     db = client["data"]
@@ -30,7 +30,7 @@ def load_data():
     df['player_name'] = df['player_name'].str.replace('Player stats ', '', regex=False).str.strip()
     return df
 
-@st.cache_data
+# @st.cache_data
 def load_config():
     config_path = Path(__file__).parent / "config.yaml"
 
